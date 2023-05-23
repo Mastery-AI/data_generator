@@ -1,11 +1,11 @@
-"""MR. UTILS: Utility functions used by the mapreduce framework."""
+"""Network utility functions used by the Generator framework."""
 import json
 import logging
 import pathlib
 import socket
 
-from mapreduce.utils.messages import MessageArgs, MessageType
-from mapreduce.utils.node import Node
+from data_generator.utils.messages import MessageArgs, MessageType
+from data_generator.utils.node import Node
 
 
 # Make a json.JSONEncoder subclass that handles pathlib.Path objects

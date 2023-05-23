@@ -1,4 +1,4 @@
-"""A node in the MapReduce network."""
+"""A node in the Data Generator network."""
 
 
 from dataclasses import dataclass

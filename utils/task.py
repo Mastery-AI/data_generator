@@ -1,4 +1,4 @@
-"""MapReduce framework task for a Worker node."""
+"""Data Generator framework task for a Worker node."""
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -16,13 +16,6 @@ class TaskStatus(Enum):
     LOST = 3
 
 
-class TaskType(Enum):
-    """Type of a Task."""
-
-    MAP = 'map'
-    REDUCE = 'reduce'
-
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -33,7 +26,6 @@ class Task:
     This is what is assigned by the Manager to a Worker node.
     """
 
-    type: TaskType
     task_id: int  # Unique ID
     files: List[pathlib.Path] = field(default_factory=list)  # Files to process
     status: TaskStatus = TaskStatus.UNASSIGNED  # Status of the task
@@ -57,7 +49,6 @@ class Task:
         """Return a string representation of all attributes in the task."""
         # Each attribute on one line
         return (
-            f"Task Type: {self.type} \n"
             f"Task ID: {self.task_id} \n"
             f"Files: {self.files} \n"
             f"Status: {self.status} \n"
