@@ -43,9 +43,9 @@ class Manager(Node):
         )
         self.__execute()
 
-    ###############
-    # All Threads #
-    ###############
+                    ###############
+                    # All Threads #
+                    ###############
 
     def __execute(self):
         """
@@ -84,9 +84,9 @@ class Manager(Node):
         LOGGER.info("all Manager threads shut down. %s:%i is available",
                     self.host, self.port)
 
-    ####################
-    # Message Handling #
-    ####################
+                    ####################
+                    # Message Handling #
+                    ####################
 
     def process_message(self, message_dict: dict):
         """Interpret and handle TCP message."""
@@ -96,7 +96,7 @@ class Manager(Node):
             LOGGER.error("Received unknown message type %s",
                          message_dict.get('message_type', None))
             return
-        # If we receive a shutdown message, shut down all he workers
+        # If we receive a shutdown message, shut down all the workers
         if message_type == MessageType.SHUTDOWN:
             LOGGER.info("shutting down workers...")
             self.__shutdown_workers()
@@ -152,9 +152,9 @@ class Manager(Node):
             task.detach()
             task.status = TaskStatus.COMPLETED
 
-    ##################################
-    # Worker Registration & Shutdown #
-    ##################################
+                ##################################
+                # Worker Registration & Shutdown #
+                ##################################
 
     def __register_worker(self, worker_host: str, worker_port: int):
         """Register a new worker with the manager.
@@ -246,9 +246,9 @@ class Manager(Node):
                 num_connected_workers += 1
         return num_connected_workers
 
-    #################
-    # Job Add & Get #
-    #################
+                    #################
+                    # Job Add & Get #
+                    #################
 
     def __add_job(self, input_dir: Path, output_dir: Path,
                   mapper_path: Path, reducer_path: Path,
@@ -329,9 +329,9 @@ class Manager(Node):
         # End the job thread
         LOGGER.debug("job thread shutting down.")
 
-    ####################
-    # Completing Tasks #
-    ####################
+                    ####################
+                    # Completing Tasks #
+                    ####################
 
     def __perform_job(self, current_job: Job, temp_dir: Path):
         """Perform a mapreduce job.
@@ -453,9 +453,9 @@ class Manager(Node):
 
             time.sleep(0.5 * TIME_FACTOR)  # To avoid busy waiting
 
-    ##############################
-    # Assigning Tasks to Workers #
-    ##############################
+                    ##############################
+                    # Assigning Tasks to Workers #
+                    ##############################
 
     def __assign_map_task(self, current_job: Job,
                           map_task: Task, temp_dir: Path):
@@ -582,9 +582,9 @@ class Manager(Node):
             LOGGER.debug("Can't find a worker for reduce task %i",
                          reduce_task.task_id)
 
-    ###################
-    # Fault Tolerance #
-    ###################
+                    ###################
+                    # Fault Tolerance #
+                    ###################
 
     def heartbeat_thread(self):
         """Listen for heartbeats from workers."""
