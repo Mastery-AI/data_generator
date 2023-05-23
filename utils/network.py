@@ -1,11 +1,10 @@
-"""Network utility functions used by the Generator framework."""
 import json
 import logging
 import pathlib
 import socket
 
-from data_generator.utils.messages import MessageArgs, MessageType
-from data_generator.utils.node import Node
+from mapreduce.utils.messages import MessageArgs, MessageType
+from mapreduce.utils.node import Node
 
 
 # Make a json.JSONEncoder subclass that handles pathlib.Path objects
@@ -37,7 +36,7 @@ def run_main_thread(node: Node, logger: logging.Logger):
         # omit this, it blocks indefinitely, waiting for a connection.
         sock.settimeout(1)
         # Log the supplicant's host and port
-        logger.info("New %s wants TCP listening on %s:%i",
+        logger.info("new %s listening on %s:%i/tcp",
                     node.type.value, node.host, node.port)
         # Start listening for incoming connections,
         # and wait for a shutdown signal
@@ -83,7 +82,8 @@ def run_main_thread(node: Node, logger: logging.Logger):
             # Log the message and process it
             logger.debug("%s=%s:%i recieved message from %s -> \n%s",
                          node.type.value, node.host, node.port,
-                         address[0], json.dumps(message, indent=2))
+                         get_hostname(address[0]),
+                         json.dumps(message, indent=2))
             node.process_message(message)
 
         # Log that the supplicant is shutting down
@@ -93,9 +93,11 @@ def run_main_thread(node: Node, logger: logging.Logger):
 
 def __send_message(node: Node, logger: logging.Logger,
                    dest_host: str, dest_port: int,
-                   message: dict) -> bool:
+                   message: dict,
+                   subject: str) -> bool:
     """Send a message to a node using TCP."""
-    logger.debug("Sending message to %s:%i", node.host, node.port)
+    logger.debug("Sending %s message to %s:%i",
+                 subject, dest_host, dest_port)
     try:
         # Create a TCP socket
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -107,10 +109,10 @@ def __send_message(node: Node, logger: logging.Logger,
             # Send the message
             sock.sendall(message_bytes)
             # Log the message
-            logger.debug("%s=%s:%i sent message to %s -> \n%s",
-                         node.type.value, node.host, node.port,
-                         f"{dest_host}:{dest_port}",
-                         json.dumps(message, indent=2))
+            # logger.debug("%s=%s:%i sent message to %s -> \n%s",
+            #              node.type.value, node.host, node.port,
+            #              f"{dest_host}:{dest_port}",
+            #              json.dumps(message, indent=2))
     except ConnectionRefusedError:
         # Log the error
         msg = f"Could not connect to {node.type.value}={node.host}:{node.port}"
@@ -123,6 +125,7 @@ def __send_message(node: Node, logger: logging.Logger,
 def attempt_message(sender: Node, logger: logging.Logger,
                     message_type: MessageType,
                     dest_host: str, dest_port: int,
+                    subject: str,
                     **kwargs) -> bool:
     """Attempt to send a message of the specified type to the given node.
 
@@ -144,11 +147,19 @@ def attempt_message(sender: Node, logger: logging.Logger,
     required_args: dict = MessageArgs[message_type]
     for a_name, a_type in required_args.items():
         if a_name not in kwargs or not isinstance(kwargs[a_name], a_type):
-            raise ValueError(f"Invalid argument {a_name} or type {a_type} \
-                                for message type {message_type}")
+            raise ValueError((f"Invalid argument {a_name} or type {a_type}"
+                             f"for message type {message_type}"))
 
     # Craft the message dictionary
     message_dict = {"message_type": message_type.value, **kwargs}
 
     # Send the message
-    return __send_message(sender, logger, dest_host, dest_port, message_dict)
+    return __send_message(sender, logger, dest_host, dest_port, message_dict,
+                          subject)
+
+
+def get_hostname(host: str):
+    """Get the hostname of a node."""
+    if host == "127.0.0.1":
+        return "localhost"
+    return host

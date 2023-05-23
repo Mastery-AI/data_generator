@@ -1,5 +1,4 @@
 """Job that is assigned to a Manager in the MapReduce framework."""
-
 from dataclasses import dataclass
 import logging
 import pathlib
@@ -16,23 +15,27 @@ class Job:
 
     # Job configuration
     job_id: int  # Unique ID
-    prompt_path: pathlib.Path  # Path to prompt
-    source_path: pathlib.Path  # Path to source
-    # For py1int, this needs to be one variable
-    worker_count: int # Worker Count
+    source_path: pathlib.Path  # Path to source work
+    prompt_path: pathlib.Path  # Path to gpt prompt
+    # For py1int, this needs to be one vatibale
+    count: int  # worker count
     input_dir: pathlib.Path  # Path to input directory
 
     # Job status
     output_dir: pathlib.Path = None  # Path to output directory
     tasks: Dict[int, Task] = None  # Tasks for the job
 
+    # NOT NECESSARY
+    # in_map_stage: bool = True  # Whether the job is in the map stage
+    
+
     def __str__(self):
         """Return a string representation of all attributes in the job."""
         return (f"Job("
                 f"job_id={self.job_id}\n"
-                f"prompt_path={self.prompt_path}\n"
                 f"source_path={self.source_path}\n"
-                f"worker_count={self.worker_count}\n"
+                f"prompt_path={self.prompt_path}\n"
+                f"worker_count={self.count}\n"
                 f"input_dir={self.input_dir}\n"
                 f"output_dir={self.output_dir}\n"
                 f"tasks={self.tasks}\n"
@@ -46,36 +49,30 @@ class Job:
 
     def get_worker_count(self) -> int:
         """Get the number of workers for the job."""
-        return self.counts[0]
+        return self.count
+    
+    def get_remaining_tasks(self) -> int:
+        """Get the number of remaining map tasks."""
+        if self.tasks is None:
+            return self.count
+        return sum([1 for task in self.tasks.values()
+                    if task.status != TaskStatus.COMPLETED])
 
-    def add_tasks(self):
-        """Add the map tasks to the job."""
-        # Create the generator tasks
+
+    def add_tasks(self) -> int:
+        """Add the tasks to the job."""
+        # Create the map tasks
         if self.tasks is None:
             self.tasks = {}
         else:
             self.tasks.clear()
         for i in range(self.get_worker_count()):
-            self.tasks[i] = Task(i)
+            self.tasks[i + 1] = Task(i + 1)
         # Loop over the input files and assign
         for idx, file in enumerate(sorted(self.input_dir.iterdir())):
-            task: Task = self.tasks[idx % self.get_worker_count()]
+            task: Task = self.tasks[idx % self.get_worker_count() + 1]
             task.files.append(file)
         # Determine if some Tasks have no files, and mark them as complete
         for task in self.tasks.values():
             if not task.files:
                 task.status = TaskStatus.COMPLETED
-
-    # def add_reduce_tasks(self, temp_dir: pathlib.Path):
-    #     """Add the reduce tasks to the job."""
-    #     # Get the current task count
-    #     self.tasks.clear()
-    #     # Create the reduce tasks, starting at the current task count
-    #     for i in range(self.get_reducer_count()):
-    #         self.tasks[i] = Task(TaskType.REDUCE, i)
-    #     # Loop over the temporary files, and assign to part in filename
-    #     for file in sorted(temp_dir.iterdir()):
-    #         part = int(file.name.split('part')[-1])
-    #         # Get the task for the part
-    #         task: Task = self.tasks[part]
-    #         task.files.append(file)

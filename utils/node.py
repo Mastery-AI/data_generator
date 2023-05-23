@@ -1,4 +1,4 @@
-"""A node in the Data Generator network."""
+"""A node in the MapReduce network."""
 
 
 from dataclasses import dataclass
@@ -27,10 +27,6 @@ class Node:
     host: str  # Hostname
     port: int  # Port number
     wants_shutdown: bool  # If the node needs the server to shutdown
-
-    @abstractmethod
-    def __str__(self):
-        """Return a string representation of the node."""
 
     @abstractmethod
     def process_message(self, message_dict: dict):
