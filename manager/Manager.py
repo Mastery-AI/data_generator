@@ -14,7 +14,7 @@ from data_generator.utils.node import Node, NodeType
 from data_generator.utils.task import Task, TaskStatus, TaskType
 from data_generator.utils import network
 from data_generator.utils.job import Job
-from data_generator.manager.worker_proxy import \
+from manager.Worker_proxy import \
     WorkerProxy, WorkerStatus as WorkerStatus
 from data_generator.utils.messages import MessageType
 
@@ -24,7 +24,7 @@ TIME_FACTOR = 0.75  # TO DO
 
 
 class Manager(Node):
-    """Represent a MapReduce framework Manager node."""
+    """Represent Generator framework Manager node."""
 
     def __init__(self, host, port):
         """Construct a Manager instance and start listening for messages."""
@@ -107,8 +107,8 @@ class Manager(Node):
             self.__add_job(
                 input_dir=message_dict.get('input_directory', None),
                 output_dir=message_dict.get('output_directory', None),
-                mapper_path=message_dict.get('mapper_executable', None),
-                reducer_path=message_dict.get('reducer_executable', None),
+                source_path=message_dict.get('source_path', None),
+                prompt_path=message_dict.get('prompt_path', None),
                 # For py1int, need to make this one variable
                 counts=(message_dict.get('num_mappers', None),
                         message_dict.get('num_reducers', None))
@@ -251,7 +251,7 @@ class Manager(Node):
                     #################
 
     def __add_job(self, input_dir: Path, output_dir: Path,
-                  mapper_path: Path, reducer_path: Path,
+                  source_path: Path, prompt_path: Path,
                   counts: Tuple[int, int]):
         """
         Create a new job.
@@ -260,7 +260,7 @@ class Manager(Node):
         output directory (delete it if it already exists),
         and add it to the __jobs queue.
         """
-        if None in (input_dir, output_dir, mapper_path, reducer_path,
+        if None in (input_dir, output_dir, source_path, prompt_path,
                     counts):
             LOGGER.error("Received message without all required fields.")
             return
@@ -271,8 +271,8 @@ class Manager(Node):
         LOGGER.info('available workers: %i', num_connected_workers)
         new_job = Job(
             job_id=self.__running_job_count,
-            mapper_path=mapper_path,
-            reducer_path=reducer_path,
+            source_path=source_path,
+            prompt_path=prompt_path,
             counts=counts,  # (num_mappers, num_reducers)
             input_dir=input_dir,
             output_dir=output_dir
