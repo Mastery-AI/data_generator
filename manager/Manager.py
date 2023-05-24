@@ -110,8 +110,7 @@ class Manager(Node):
                 source_path=message_dict.get('source_path', None),
                 prompt_path=message_dict.get('prompt_path', None),
                 # For py1int, need to make this one variable
-                counts=(message_dict.get('num_mappers', None),
-                        message_dict.get('num_reducers', None))
+                count = message_dict.get('num_workers', None)
             )
         # Register a worker
         elif message_type == MessageType.REGISTER:
@@ -139,12 +138,11 @@ class Manager(Node):
                         task.type.value, task.task_id, 
                         current_job.job_id,
                         worker_host, worker_port)
-            # Now say how many remaiing tasks there are
-            remaining_map_tasks = current_job.get_remaining_map_tasks()
-            remaining_reduce_tasks = current_job.get_remaining_reduce_tasks()
-            LOGGER.info("job %i remaining tasks: map=%i reduce=%i",
+            # Now say how many remaining tasks there are
+            remaining_tasks = current_job.get_remaining_tasks()
+            LOGGER.info("job %i remaining tasks: %i",
                         current_job.job_id,
-                        remaining_map_tasks, remaining_reduce_tasks)
+                        remaining_tasks)
 
             
             worker_for_task: WorkerProxy = task.worker
@@ -315,7 +313,7 @@ class Manager(Node):
                         current_job.job_id)
 
             with tempfile.TemporaryDirectory(
-                  prefix=f"mapreduce-shared-job{current_job.job_id:05d}-"
+                  prefix=f"generator-shared-job{current_job.job_id:05d}-"
                  ) as temp_dir:
                 LOGGER.debug("Created a temporary directory: %s",
                              temp_dir)
