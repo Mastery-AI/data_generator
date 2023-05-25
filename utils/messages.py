@@ -27,10 +27,11 @@ MessageArgs = {
     },
     MessageType.NEW_TASK: {
         "task_id": int,
-        "input_paths": list,
-        "executable": str,
+        #"input_paths": list,
+        "source_path": str,
+        "prompt_path": str,
         "output_directory": str,
-        "num_partitions": int,
+        #"num_partitions": int,
         "worker_host": str,
         "worker_port": int
     },

@@ -332,18 +332,14 @@ class Manager(Node):
                     ####################
 
     def __perform_job(self, current_job: Job, temp_dir: Path):
-        """Perform a mapreduce job.
+        """Perform a data generation job.
 
         This will create the output directory or delete
-        the pre-existing one, perform all map tasks, and
-        then perform all reduce tasks.
+        the pre-existing one and perform all tasks.
         """
         # Perform and complete map tasks
-        self.__perform_map_tasks(current_job, temp_dir)
-        LOGGER.debug("map tasks complete for job %i", current_job.job_id)
-        # Perform and complete reduce tasks
-        self.__perform_reduce_tasks(current_job, temp_dir)
-        LOGGER.debug("meduce tasks complete for job %i", current_job.job_id)
+        self.__perform_tasks(current_job, temp_dir)
+        LOGGER.debug("tasks complete for job %i", current_job.job_id)
 
         LOGGER.info("job %i complete",
                     current_job.job_id,)
@@ -351,7 +347,7 @@ class Manager(Node):
                     current_job.job_id,
                     current_job.output_dir)
 
-    def __perform_map_tasks(self, current_job: Job, temp_dir: Path):
+    def __perform_tasks(self, current_job: Job, temp_dir: Path):
         """Perform all of the map tasks for a particular job.
 
         This will calculate all of the map tasks for the job, and
@@ -366,27 +362,21 @@ class Manager(Node):
         incomplete_tasks = queue.Queue()
         ###############################
 
-        # Assign map tasks to the job
-        LOGGER.debug("assigning map tasks for job %i...",
+        # Assign tasks to the job
+        LOGGER.debug("assigning tasks for job %i...",
                     current_job.job_id)
-        current_job.add_map_tasks()
-        # Add map tasks to the queue
+        current_job.add_tasks()
+        # Add tasks to the queue
         for task in current_job.tasks.values():
             task: Task
-            if task.type == TaskType.REDUCE:
-                LOGGER.error('unexpected reduce task')
-            else:
-                incomplete_tasks.put(task)
+            incomplete_tasks.put(task)
+                
 
-        # Wait for all map tasks to finish
+        # Wait for all tasks to finish
         while not incomplete_tasks.empty() and not self.wants_shutdown:
             # Get the next task
             task: Task = incomplete_tasks.get()
 
-            # If the task is a reduce task
-            if task.type == TaskType.REDUCE:
-                LOGGER.error('unexpected reduce task')
-                break
             # If the task is complete
             if task.status == TaskStatus.COMPLETED:
                 continue
@@ -398,65 +388,17 @@ class Manager(Node):
             if task.status in (TaskStatus.UNASSIGNED, TaskStatus.LOST):
                 incomplete_tasks.put(task)  # Put it back in the queue
                 # Keep trying to assign the task until it is assigned
-                self.__assign_map_task(current_job, task, temp_dir)
+                self.__assign_task(current_job, task, temp_dir)
 
             time.sleep(0.5 * TIME_FACTOR)  # To avoid busy waiting
 
-    def __perform_reduce_tasks(self, current_job: Job, temp_dir: Path):
-        """Perform all of the reduce tasks for a particular job.
-
-        This will calculate all of the reduce tasks for the job, and
-        then indefinitely loop, assigning tasks to workers until
-        all tasks are complete.
-        """
-        # Create a queue for tasks.
-        # This will act as a buffer for tasks that are not yet assigned,
-        # so that we only move on to the next task when the previous one
-        # is complete.
-        ###############################
-        incomplete_tasks = queue.Queue()
-        ###############################
-
-        # Assign reduce tasks to the job
-        LOGGER.debug("assigning reduce tasks for job %i...",
-                    current_job.job_id)
-        current_job.add_reduce_tasks(temp_dir)
-        # Assign reduce tasks to the job
-        for task in current_job.tasks.values():
-            task: Task
-            if task.type == TaskType.MAP:
-                LOGGER.error('unexpected map task')
-            else:
-                incomplete_tasks.put(task)
-
-        # Wait for all reduce tasks to finish
-        while not incomplete_tasks.empty() and not self.wants_shutdown:
-            # Remove a task from the queue
-            task: Task = incomplete_tasks.get()
-            # If the task is a map task
-            if task.type == TaskType.MAP:
-                LOGGER.error('unexpected map task')
-                break
-            # If the task is complete
-            if task.status == TaskStatus.COMPLETED:
-                continue
-            if task.status == TaskStatus.RUNNING:
-                incomplete_tasks.put(task)  # Put it back in the queue
-                continue
-            # Assign the task to a worker
-            if task.status in (TaskStatus.UNASSIGNED, TaskStatus.LOST):
-                incomplete_tasks.put(task)  # Put it back in the queue
-                # Keep trying to assign the task until it is assigned
-                self.__assign_reduce_task(current_job, task)
-
-            time.sleep(0.5 * TIME_FACTOR)  # To avoid busy waiting
 
                     ##############################
                     # Assigning Tasks to Workers #
                     ##############################
 
-    def __assign_map_task(self, current_job: Job,
-                          map_task: Task, temp_dir: Path):
+    def __assign_task(self, current_job: Job,
+                          task: Task, temp_dir: Path):
         """Assign a particular map task for a job.
 
         This will indefinitely loop through all of the workers until
@@ -466,7 +408,7 @@ class Manager(Node):
         If a worker is found to be non-responsive, it will be marked
         as dead.
         """
-        LOGGER.debug("Assigning map task %i", map_task.task_id)
+        LOGGER.debug("Assigning map task %i", task.task_id)
         # Need to loop indefinitely until the task is assigned
         while not self.wants_shutdown:
             time.sleep(0.5 * TIME_FACTOR)  # Avoid busy waiting
@@ -482,15 +424,16 @@ class Manager(Node):
                     if network.attempt_message(
                         sender=self,
                         logger=LOGGER,
-                        subject='assign map task',
-                        message_type=MessageType.NEW_MAP_TASK,
+                        subject='assign task',
+                        message_type=MessageType.NEW_TASK,
                         dest_host=worker.host,
                         dest_port=worker.port,
-                        task_id=map_task.task_id,
-                        input_paths=map_task.get_file_paths(),
-                        executable=current_job.mapper_path,
+                        task_id=task.task_id,
+                        #input_paths=task.get_file_paths(),
+                        source_path=current_job.source_path,
+                        prompt_path=current_job.prompt_path,
                         output_directory=str(temp_dir),
-                        num_partitions=current_job.get_reducer_count(),
+                        #num_partitions=current_job.get_reducer_count(),
                         worker_host=worker.host,
                         worker_port=worker.port,
                         job_id=current_job.job_id,
@@ -499,10 +442,10 @@ class Manager(Node):
                         # give the worker the task, which will set its status
                         # to busy, set the task's status to running,
                         # and set the task's worker to the worker
-                        worker.give_task(map_task)
-                        map_task.status = TaskStatus.RUNNING
+                        worker.give_task(task)
+                        task.status = TaskStatus.RUNNING
                         LOGGER.info("assigned map task %i for job %i (wrkr=%s:%i)",
-                                    map_task.task_id, current_job.job_id,
+                                    task.task_id, current_job.job_id,
                                     worker.host, worker.port)
                         return  # The task has been assigned, so return
 
@@ -511,7 +454,7 @@ class Manager(Node):
                     # occurred. The worker should be killed.
                     LOGGER.info(("failed to assign "
                                  "map task %i for job %i, killing worker %s:%i..."),
-                                 map_task.task_id, current_job.job_id,
+                                 task.task_id, current_job.job_id,
                                  worker.host, worker.port)
                     # Killing the worker will set its status to dead,
                     # and make it lose its current task
@@ -519,66 +462,7 @@ class Manager(Node):
                     num_connected_workers = self.__get_num_connected_workers()
                     LOGGER.info('available workers: %i', num_connected_workers)
             LOGGER.debug("Can't find a worker for map task %i",
-                         map_task.task_id)
-
-    def __assign_reduce_task(self, current_job: Job, reduce_task: Task):
-        """Assign a particular reduce task to a job.
-
-        This will indefinitely loop through all of the workers until
-        it finds one that is available. It will then send the worker
-        a message to perform the task.
-
-        If a worker is found to be non-responsive, it will be marked
-        as dead.
-        """
-        # Need to loop indefinitely until the task is assigned
-        while not self.wants_shutdown:
-            time.sleep(0.5 * TIME_FACTOR)  # Avoid busy waiting
-            # Loop through all workers, looking for an available one
-            for worker in self.__workers.values():
-                # If the worker is busy or dead, skip it
-                if worker.status in (WorkerStatus.BUSY, WorkerStatus.DEAD):
-                    continue
-                if worker.status == WorkerStatus.AVAILABLE:
-                    # Attempt to send the message to the worker
-                    if network.attempt_message(
-                        sender=self,
-                        logger=LOGGER,
-                        subject='assign reduce task',
-                        message_type=MessageType.NEW_REDUCE_TASK,
-                        dest_host=worker.host,
-                        dest_port=worker.port,
-                        task_id=reduce_task.task_id,
-                        executable=current_job.reducer_path,
-                        input_paths=reduce_task.get_file_paths(),
-                        output_directory=str(current_job.output_dir),
-                        worker_host=worker.host,
-                        worker_port=worker.port,
-                        job_id=current_job.job_id,
-                    ):
-                        # If the message was sent successfully,
-                        # give the worker the task, which will set its status
-                        # to busy, set the task's status to running,
-                        # and set the task's worker to the worker
-                        worker.give_task(reduce_task)
-                        reduce_task.status = TaskStatus.RUNNING
-                        LOGGER.info("assigned reduce task %i for job %i (wrkr=%s:%i)",
-                                    reduce_task.task_id, current_job.job_id,
-                                    worker.host, worker.port)
-                        return  # The task has been assigned, so return
-
-                    # If it gets to this point, the message was not sent
-                    # successfully. This means a ConnectionRefusedError
-                    # occurred. The worker should be killed.
-                    LOGGER.info(("failed to assign "
-                                 "reduce task %i for job %i, killing worker %s:%i..."),
-                                 reduce_task.task_id, current_job.job_id,
-                                 worker.host, worker.port)
-                    # Killing the worker will set its status to dead,
-                    # and make it lose its current task
-                    worker.kill()
-            LOGGER.debug("Can't find a worker for reduce task %i",
-                         reduce_task.task_id)
+                         task.task_id)
 
                     ###################
                     # Fault Tolerance #
